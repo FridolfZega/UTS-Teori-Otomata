@@ -1,0 +1,138 @@
+class NFABooking:
+    def __init__(self):
+        self.state = 'START'
+        self.movies = {
+            "1": {"title": "Avengers: Endgame", "price": 50000, "studio": "Studio 1"},
+            "2": {"title": "Joker", "price": 45000, "studio": "Studio 2"},
+            "3": {"title": "Interstellar", "price": 55000, "studio": "Studio 3"}
+        }
+        self.showtimes = {"1": "12:00", "2": "15:00", "3": "18:00"}
+        self.seats = {
+            movie_id: {self.showtimes[time]: {f"{row}{col}": False for row in "ABCD" for col in range(1, 6)} for time in self.showtimes}
+            for movie_id in self.movies
+        }
+        self.selected_movie = None
+        self.selected_movie_id = None
+        self.selected_time = None
+        self.ticket_count = 0
+        self.total_price = 0
+        self.selected_seats = []
+
+    def reset(self):
+        """Reset state ke awal setelah pemesanan selesai."""
+        self.state = 'START'
+        self.selected_movie = None
+        self.selected_movie_id = None
+        self.selected_time = None
+        self.ticket_count = 0
+        self.total_price = 0
+        self.selected_seats = []
+
+    def transition(self, input_value):
+        if self.state == 'START':
+            if input_value == "1":
+                self.state = "CHOOSING_MOVIE"
+                return self.display_movies()
+            elif input_value == "2":
+                self.state = "CHOOSING_TIME"
+                return self.display_showtimes()
+            else:
+                return "❌ Pilihan tidak valid!"
+
+        elif self.state == "CHOOSING_MOVIE":
+            if input_value in self.movies:
+                self.selected_movie = self.movies[input_value]
+                self.selected_movie_id = input_value
+                if self.selected_time is None:
+                    self.state = "CHOOSING_TIME"
+                    return f"🎬 Film: {self.selected_movie['title']} dipilih.\nSekarang pilih jam tayang:\n{self.display_showtimes()}"
+                else:
+                    self.state = "CHOOSING_TICKETS"
+                    return "Masukkan jumlah tiket:"
+            return "❌ Pilihan film tidak valid!"
+
+        elif self.state == "CHOOSING_TIME":
+            if input_value in self.showtimes:
+                self.selected_time = self.showtimes[input_value]
+                if self.selected_movie is None:
+                    self.state = "CHOOSING_MOVIE"
+                    return f"⏰ Jam tayang {self.selected_time} dipilih.\nSekarang pilih film:\n{self.display_movies()}"
+                else:
+                    self.state = "CHOOSING_TICKETS"
+                    return "Masukkan jumlah tiket:"
+            return "❌ Jam tayang tidak valid!"
+
+        elif self.state == "CHOOSING_TICKETS":
+            if input_value.isdigit():
+                num_tickets = int(input_value)
+                available_seats = sum(not v for v in self.seats[self.selected_movie_id][self.selected_time].values())
+                if 0 < num_tickets <= available_seats:
+                    self.ticket_count = num_tickets
+                    self.total_price = self.ticket_count * self.selected_movie['price']
+                    self.state = "CHOOSING_SEATS"
+                    return f"Silakan pilih {self.ticket_count} kursi:\n{self.display_seats(self.selected_movie_id, self.selected_time)}"
+                else:
+                    return "❌ Jumlah tiket tidak valid atau kursi tidak cukup!"
+            return "❌ Harus memasukkan angka!"
+
+        elif self.state == "CHOOSING_SEATS":
+            chosen_seats = input_value.split()
+            if len(chosen_seats) != self.ticket_count:
+                return f"❌ Harus memilih {self.ticket_count} kursi! Pilih ulang:\n{self.display_seats(self.selected_movie_id, self.selected_time)}"
+
+            invalid_seats = [seat for seat in chosen_seats if seat not in self.seats[self.selected_movie_id][self.selected_time] or self.seats[self.selected_movie_id][self.selected_time][seat]]
+
+            if invalid_seats:
+                return f"❌ Kursi {', '.join(invalid_seats)} tidak valid atau sudah dipesan! Pilih ulang:\n{self.display_seats(self.selected_movie_id, self.selected_time)}"
+
+            for seat in chosen_seats:
+                self.seats[self.selected_movie_id][self.selected_time][seat] = True
+
+            self.selected_seats.extend(chosen_seats)
+            self.state = "TICKET_PRINTED"
+            return self.print_ticket()
+
+    def display_movies(self):
+        """Menampilkan daftar film."""
+        return "Pilih film:\n" + "\n".join([f"{num}. {movie['title']}" for num, movie in self.movies.items()])
+
+    def display_showtimes(self):
+        """Menampilkan jam tayang yang tersedia dengan angka pilihan."""
+        return "Pilih jam tayang:\n" + "\n".join([f"{num}. {time}" for num, time in self.showtimes.items()])
+
+    def display_seats(self, movie_id, time):
+        """Menampilkan kursi yang tersedia dan yang sudah dipesan untuk jam tayang tertentu."""
+        seat_display = ""
+        for row in "ABCD":
+            seat_row = " ".join(
+                [f"{row}{col}{'(X)' if self.seats[movie_id][time][f'{row}{col}'] else ''}" for col in range(1, 6)]
+            )
+            seat_display += seat_row + "\n"
+        return seat_display
+
+    def print_ticket(self):
+        """Cetak tiket dan kembali ke menu awal."""
+        result = f"""
+📽 Tiket Anda
+🎬 Film: {self.selected_movie['title']}
+🏢 Studio: {self.selected_movie['studio']}
+⏰ Jam tayang: {self.selected_time}
+🎟 Kursi: {', '.join(self.selected_seats)}
+💰 Total Harga: {self.total_price}
+✅ Tiket berhasil dicetak!
+
+🔄 Kembali ke menu utama.
+{self.display_main_menu()}"""
+        self.reset()
+        return result
+
+    def display_main_menu(self):
+        """Menampilkan menu utama."""
+        return "Pilih opsi terlebih dahulu:\n1. Pilih film\n2. Pilih jam tayang"
+
+# Simulasi
+nfa = NFABooking()
+print(nfa.display_main_menu())
+while True:
+    user_input = input("Masukkan pilihan: ")
+    print(nfa.transition(user_input))
